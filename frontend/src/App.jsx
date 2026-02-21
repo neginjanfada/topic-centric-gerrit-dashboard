@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import ChartsGrid from "./components/ChartsGrid";
-import VelocityCard from "./components/VelocityCard"; // ✅ use the component file
+import VelocityCard from "./components/VelocityCard";
 
 function StatCard({ label, value, icon }) {
   return (
@@ -119,7 +119,9 @@ function RecentActivity() {
   return (
     <div className="card">
       <div className="cardTitle">Recent Activity</div>
-      <div className="activityList">
+
+      {/* Scrollable list (keeps card size nice) */}
+      <div className="activityList activityScroll">
         {items.map((it, idx) => (
           <div className="activityItem" key={idx}>
             <div className="activityMain">
@@ -172,7 +174,7 @@ function ChangesTable({ changes }) {
     subject: c.subject || "—",
     repo: c.project || "—",
     status: c.status || "—",
-    revisions: c.current_revision ? "—" : "—",
+    revisions: "—",
     ci: "—",
     timeline: c.created && c.updated ? `${c.created.slice(0, 10)} → ${c.updated.slice(0, 10)}` : "—",
   }));
@@ -226,6 +228,17 @@ export default function App() {
   const [changes, setChanges] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Dark mode state
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
+
+  // Apply theme to <html data-theme="...">
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -259,10 +272,11 @@ export default function App() {
 
     const mergeRate = totalChanges === 0 ? 0 : Math.round((mergedChanges / totalChanges) * 100);
 
-    // ✅ placeholder build stats for now (until CI data)
+    // placeholders (until CI integration)
     const buildTotal = 0;
     const buildSuccess = 0;
     const buildFailure = 0;
+    const avgJobTime = null; // later: number (seconds or ms)
 
     return {
       totalChanges,
@@ -272,11 +286,10 @@ export default function App() {
       repositories: repos.size,
       branches: branches.size,
       mergeRate,
-
-      // pass to VelocityCard
       buildTotal,
       buildSuccess,
       buildFailure,
+      avgJobTime,
     };
   }, [changes]);
 
@@ -285,21 +298,31 @@ export default function App() {
       <div className="topbar">
         <h1 className="title">Topic-Centric Gerrit Dashboard</h1>
 
-        <form
-          className="searchBox"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setTopic(topicInput.trim() || "test");
-          }}
-        >
-          <span className="searchIcon">🔍</span>
-          <input
-            className="searchInput"
-            value={topicInput}
-            onChange={(e) => setTopicInput(e.target.value)}
-            placeholder="Enter Gerrit topic name..."
-          />
-        </form>
+        <div className="topbarRight">
+          <form
+            className="searchBox"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setTopic(topicInput.trim() || "test");
+            }}
+          >
+            <span className="searchIcon">🔍</span>
+            <input
+              className="searchInput"
+              value={topicInput}
+              onChange={(e) => setTopicInput(e.target.value)}
+              placeholder="Enter Gerrit topic name..."
+            />
+          </form>
+
+          <button
+            type="button"
+            className="themeBtn"
+            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+          >
+            {theme === "light" ? "🌙 Dark" : "☀️ Light"}
+          </button>
+        </div>
       </div>
 
       <div className="statsRow">
@@ -322,7 +345,6 @@ export default function App() {
         </div>
 
         <div className="rightCol">
-          {/* ✅ now uses the component version with Builds/Success/Failures */}
           <VelocityCard metrics={metrics} />
           <RecentActivity />
           <TopContributors />
