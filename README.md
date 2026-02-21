@@ -41,7 +41,3 @@ This project follows a full-stack architecture:
 - CI build metrics (extendable)
 - Scrollable activity panel
 - Clean UI layout
-
-## 🔌 Gerrit API Integration
-
-The backend communicates with Gerrit using:
