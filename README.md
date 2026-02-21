@@ -4,9 +4,8 @@ A topic-based analytics dashboard built on top of the Gerrit REST API.
 
 This project provides a structured visualization layer over Gerrit topics, enabling better understanding of change activity, review velocity, and CI performance.
 
----
 
-## 🏗 Project Architecture
+## Project Architecture
 
 This project follows a full-stack architecture:
 
@@ -28,9 +27,8 @@ This project follows a full-stack architecture:
 - CORS-enabled API endpoints
 - Topic-based change fetching
 
----
 
-## 🚀 Features
+## Features
 
 - Search Gerrit topics
 - Fetch changes using Gerrit REST API
@@ -43,8 +41,6 @@ This project follows a full-stack architecture:
 - CI build metrics (extendable)
 - Scrollable activity panel
 - Clean UI layout
-
----
 
 ## 🔌 Gerrit API Integration
 
