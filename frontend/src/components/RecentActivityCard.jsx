@@ -4,6 +4,14 @@ const activity = [
   { who: "Mike Wilson", action: "reviewed", id: "#54318", time: "18m ago", icon: "🧑‍⚖️" },
   { who: "CI Bot", action: "CI failed on", id: "#54325", time: "25m ago", icon: "❌" },
   { who: "Emily Davis", action: "commented on", id: "#54321", time: "32m ago", icon: "💬" },
+  
+  // duplicate some for testing
+  { who: "Alex Kumar", action: "reviewed", id: "#54350", time: "40m ago", icon: "🧑‍⚖️" },
+  { who: "Sara Lee", action: "merged", id: "#54355", time: "1h ago", icon: "✅" },
+  { who: "David Kim", action: "commented on", id: "#54360", time: "2h ago", icon: "💬" },
+  { who: "Backend Bot", action: "CI passed on", id: "#54365", time: "3h ago", icon: "✅" },
+  { who: "Frontend Bot", action: "CI failed on", id: "#54370", time: "4h ago", icon: "❌" },
+  { who: "Negin", action: "merged", id: "#54375", time: "5h ago" },
 ];
 
 export default function RecentActivityCard() {

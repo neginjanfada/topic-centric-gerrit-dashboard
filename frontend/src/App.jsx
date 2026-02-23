@@ -120,8 +120,8 @@ function RecentActivity() {
     <div className="card">
       <div className="cardTitle">Recent Activity</div>
 
-      {/* Scrollable list (keeps card size nice) */}
-      <div className="activityList activityScroll">
+      {/* 👇 this is the scroll container */}
+      <div className="activityScroll">
         {items.map((it, idx) => (
           <div className="activityItem" key={idx}>
             <div className="activityMain">
