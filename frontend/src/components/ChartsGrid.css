@@ -1,15 +1,73 @@
 .chartsGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  width: 100%;
-  margin-top: 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
 }
 
 .chartCard {
-  background: #ffffff;
-  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   padding: 16px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-  min-height: 220px;
+}
+
+.chartTitle {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.chartBody {
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: #fbfdff;
+  padding: 12px;
+}
+
+/* Subtle grid color for recharts */
+:root {
+  --grid: rgba(15, 23, 42, 0.10);
+  --chart1: #2563eb; /* primary blue */
+  --chart2: rgba(37, 99, 235, 0.60); /* softer blue */
+}
+
+/* If you already use a dark mode data attribute, this will match it */
+[data-theme="dark"] {
+  --grid: rgba(255, 255, 255, 0.14);
+  --chart1: #60a5fa;
+  --chart2: rgba(96, 165, 250, 0.55);
+}
+
+.chartEmpty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 18px;
+}
+
+/* Nice tooltip matching your cards */
+.chartTooltip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.chartTooltipLabel {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.chartTooltipValue {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+@media (max-width: 980px) {
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
 }

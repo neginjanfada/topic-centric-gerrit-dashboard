@@ -240,25 +240,30 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    setLoading(true);
-    fetch(`/api/changes?topic=${encodeURIComponent(topic)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        setChanges(data.changes || []);
-      })
-      .catch((err) => console.error(err))
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
+      let cancelled = false;
+  
+      fetch(`/api/changes?topic=${encodeURIComponent(topic)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          setChanges(data.changes || []);
+        })
+        .catch((err) => console.error(err))
+        .finally(() => {
+          if (cancelled) return;
+          setLoading(false);
+        });
+  
+      return () => {
+        cancelled = true;
+      };
+    }, [topic]);
+  
+    const handleSearchSubmit = (e) => {
+      e.preventDefault();
+      setLoading(true);
+      setTopic(topicInput.trim() || "test");
     };
-  }, [topic]);
 
   const metrics = useMemo(() => {
     const totalChanges = changes.length;
@@ -301,10 +306,7 @@ export default function App() {
         <div className="topbarRight">
           <form
             className="searchBox"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setTopic(topicInput.trim() || "test");
-            }}
+            onSubmit={handleSearchSubmit}
           >
             <span className="searchIcon">🔍</span>
             <input
@@ -340,7 +342,7 @@ export default function App() {
         <div className="leftCol">
           <TopicOverviewCard topic={topic} metrics={metrics} />
           <TopicSummaryCard />
-          <ChartsGrid />
+          <ChartsGrid changes={changes} />
           <ChangesTable changes={changes} />
         </div>
 
