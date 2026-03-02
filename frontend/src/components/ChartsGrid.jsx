@@ -11,6 +11,8 @@ import {
   CartesianGrid,
 } from "recharts";
 
+import StatusDonut from "./StatusDonut"; // ✅ NEW
+
 function Card({ title, children }) {
   return (
     <div className="chartCard">
@@ -33,7 +35,6 @@ function buildStatusData(changes) {
     counts.set(s, (counts.get(s) || 0) + 1);
   }
 
-  // Keep only statuses that appear (but preserve the order)
   return order
     .map((name) => ({ name, value: counts.get(name) || 0 }))
     .filter((x) => x.value > 0);
@@ -181,6 +182,9 @@ export default function ChartsGrid({ changes = [] }) {
           </ResponsiveContainer>
         )}
       </Card>
+
+      {/* ✅ NEW 4th card (fills the empty area) */}
+      <StatusDonut changes={changes} />
     </div>
   );
 }

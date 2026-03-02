@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import ChartsGrid from "./components/ChartsGrid";
 import VelocityCard from "./components/VelocityCard";
-import BuildsCard from "./components/BuildsCard";
+import ReviewQueue from "./components/ReviewQueue"; // ✅ NEW
 
 function StatCard({ label, value, icon }) {
   return (
@@ -27,7 +27,7 @@ function TopicOverviewCard({ topic, metrics }) {
       </div>
 
       <div className="topicName">
-        <div className="topicNameLabel">Topic</div>
+        <div className="topicNameLabel">TOPIC</div>
         <div className="topicNameValue">{topic || "—"}</div>
       </div>
 
@@ -75,7 +75,10 @@ function TopicSummaryCard() {
   return (
     <div className="card">
       <div className="cardHeaderRow">
-        <div className="sectionTitle">Topic Summary (AI)</div>
+        <div>
+          <div className="sectionTitle">Topic Summary (AI)</div>
+          <div className="sectionSubtitle">Auto-generated overview</div>
+        </div>
         <button className="primaryBtn">Generate</button>
       </div>
 
@@ -83,7 +86,8 @@ function TopicSummaryCard() {
         <div className="summaryCol">
           <div className="summaryLabel">GOAL</div>
           <div className="summaryText">
-            Implements authentication v2 with OAuth2, MFA, and improved session management.
+            Implements authentication v2 with OAuth2, MFA, and improved session
+            management.
           </div>
         </div>
 
@@ -109,7 +113,9 @@ function TopicSummaryCard() {
 
         <div className="summaryCol">
           <div className="summaryLabel">READ ORDER</div>
-          <div className="summaryText">#54312 → #54315 → #54318 → API changes</div>
+          <div className="summaryText">
+            #54312 → #54315 → #54318 → API changes
+          </div>
         </div>
       </div>
     </div>
@@ -196,7 +202,9 @@ function ChangesTable({ changes }) {
     revisions: "—",
     ci: "—",
     timeline:
-      c.created && c.updated ? `${c.created.slice(0, 10)} → ${c.updated.slice(0, 10)}` : "—",
+      c.created && c.updated
+        ? `${c.created.slice(0, 10)} → ${c.updated.slice(0, 10)}`
+        : "—",
   }));
 
   return (
@@ -226,7 +234,11 @@ function ChangesTable({ changes }) {
                 <td>{r.subject}</td>
                 <td className="mono">{r.repo}</td>
                 <td>
-                  <span className={`pill ${r.status === "MERGED" ? "pillGreen" : "pillAmber"}`}>
+                  <span
+                    className={`pill ${
+                      r.status === "MERGED" ? "pillGreen" : "pillAmber"
+                    }`}
+                  >
                     {r.status}
                   </span>
                 </td>
@@ -248,7 +260,9 @@ export default function App() {
   const [changes, setChanges] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -258,7 +272,6 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    setLoading(true);
     fetch(`/api/changes?topic=${encodeURIComponent(topic)}`)
       .then((res) => res.json())
       .then((data) => {
@@ -278,6 +291,7 @@ export default function App() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
+    setLoading(true);
     setTopic(topicInput.trim() || "test");
   };
 
@@ -291,7 +305,13 @@ export default function App() {
     const repos = new Set(changes.map((c) => c.project).filter(Boolean));
     const branches = new Set(changes.map((c) => c.branch).filter(Boolean));
 
-    const mergeRate = totalChanges === 0 ? 0 : Math.round((mergedChanges / totalChanges) * 100);
+    const mergeRate =
+      totalChanges === 0 ? 0 : Math.round((mergedChanges / totalChanges) * 100);
+
+    const buildTotal = 0;
+    const buildSuccess = 0;
+    const buildFailure = 0;
+    const avgJobTime = null;
 
     return {
       totalChanges,
@@ -301,10 +321,10 @@ export default function App() {
       repositories: repos.size,
       branches: branches.size,
       mergeRate,
-      buildTotal: 0,
-      buildSuccess: 0,
-      buildFailure: 0,
-      avgJobTime: null,
+      buildTotal,
+      buildSuccess,
+      buildFailure,
+      avgJobTime,
     };
   }, [changes]);
 
@@ -321,7 +341,6 @@ export default function App() {
               value={topicInput}
               onChange={(e) => setTopicInput(e.target.value)}
               placeholder="Enter Gerrit topic name..."
-              disabled={loading}
             />
           </form>
 
@@ -356,9 +375,11 @@ export default function App() {
 
         <div className="rightCol">
           <VelocityCard metrics={metrics} />
-           <BuildsCard metrics={metrics} />
           <RecentActivity />
           <TopContributors />
+
+          {/* ✅ NEW useful card under Top Contributors */}
+          <ReviewQueue changes={changes} />
         </div>
       </div>
     </div>
