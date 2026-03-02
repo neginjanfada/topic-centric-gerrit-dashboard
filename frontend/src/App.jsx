@@ -122,14 +122,32 @@ function TopicSummaryCard() {
   );
 }
 
-function RecentActivity() {
-  const items = [
-    { who: "Sarah Chen", action: "commented on", id: "#54323", time: "5m ago" },
-    { who: "John Doe", action: "merged", id: "#54330", time: "12m ago" },
-    { who: "Mike Wilson", action: "reviewed", id: "#54318", time: "18m ago" },
-    { who: "CI Bot", action: "CI failed on", id: "#54325", time: "25m ago" },
-    { who: "Emily Davis", action: "commented on", id: "#54321", time: "32m ago" },
-  ];
+function RecentActivity({ changes = [] }) {
+  const items = useMemo(() => {
+    // take latest updated changes as “recent activity”
+    const sorted = [...changes].sort((a, b) =>
+      String(b.updated || "").localeCompare(String(a.updated || ""))
+    );
+
+    return sorted.slice(0, 8).map((c) => {
+      const who = c.owner?.name || c.owner?.username || "Someone";
+      const id = c._number ? `#${c._number}` : c.id;
+      const status = c.status || "UPDATED";
+
+      // simple action label based on status
+      const action =
+        status === "MERGED"
+          ? "merged"
+          : status === "ABANDONED"
+          ? "abandoned"
+          : "updated";
+
+      // show date/time (simple for now)
+      const time = c.updated ? c.updated.slice(0, 16).replace("T", " ") : "—";
+
+      return { who, action, id, time };
+    });
+  }, [changes]);
 
   return (
     <div className="card">
@@ -141,57 +159,92 @@ function RecentActivity() {
       </div>
 
       <div className="activityScroll">
-        {items.map((it, idx) => (
-          <div className="activityItem" key={idx}>
-            <div className="activityMain">
-              <span className="bold">{it.who}</span> {it.action}{" "}
-              <span className="link">{it.id}</span>
+        {items.length === 0 ? (
+          <div className="muted">No activity yet.</div>
+        ) : (
+          items.map((it, idx) => (
+            <div className="activityItem" key={idx}>
+              <div className="activityMain">
+                <span className="bold">{it.who}</span> {it.action}{" "}
+                <span className="link">{it.id}</span>
+              </div>
+              <div className="muted">{it.time}</div>
             </div>
-            <div className="muted">{it.time}</div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 }
 
-function TopContributors() {
-  const people = [
-    { initials: "SC", name: "Sarah Chen", meta: "24 reviews • 8 merges", total: 32 },
-    { initials: "JD", name: "John Doe", meta: "18 reviews • 12 merges", total: 30 },
-    { initials: "MW", name: "Mike Wilson", meta: "15 reviews • 5 merges", total: 20 },
-    { initials: "ED", name: "Emily Davis", meta: "12 reviews • 7 merges", total: 19 },
-    { initials: "AK", name: "Alex Kumar", meta: "9 reviews • 3 merges", total: 12 },
-  ];
+function TopContributors({ changes = [] }) {
+  const contributors = useMemo(() => {
+    const map = {};
+
+    changes.forEach((c) => {
+      const owner = c.owner?.name || c.owner?.username || "Unknown";
+      if (!map[owner]) {
+        map[owner] = {
+          name: owner,
+          total: 0,
+          merged: 0,
+          open: 0,
+        };
+      }
+
+      map[owner].total += 1;
+
+      if (c.status === "MERGED") map[owner].merged += 1;
+      if (c.status === "NEW") map[owner].open += 1;
+    });
+
+    return Object.values(map)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [changes]);
 
   return (
     <div className="card">
       <div className="sectionHeader">
         <div>
           <div className="sectionTitle">Top Contributors</div>
-          <div className="sectionSubtitle">Most active reviewers and authors</div>
+          <div className="sectionSubtitle">
+            Based on number of changes in this topic
+          </div>
         </div>
       </div>
 
       <div className="contributorsList">
-        {people.map((p, idx) => (
-          <div className="contribRow" key={idx}>
-            <div className="avatar">{p.initials}</div>
-            <div className="contribInfo">
-              <div className="bold">{p.name}</div>
-              <div className="muted">{p.meta}</div>
+        {contributors.length === 0 ? (
+          <div className="muted">No contributors found.</div>
+        ) : (
+          contributors.map((p, idx) => (
+            <div className="contribRow" key={idx}>
+              <div className="avatar">
+                {p.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </div>
+              <div className="contribInfo">
+                <div className="bold">{p.name}</div>
+                <div className="muted">
+                  {p.total} changes • {p.merged} merged
+                </div>
+              </div>
+              <div className="contribTotal">
+                <div className="bold">{p.total}</div>
+                <div className="muted">total</div>
+              </div>
             </div>
-            <div className="contribTotal">
-              <div className="bold">{p.total}</div>
-              <div className="muted">total</div>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
 }
-
 function ChangesTable({ changes }) {
   const rows = changes.slice(0, 10).map((c) => ({
     key: c.id,
@@ -272,7 +325,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/changes?topic=${encodeURIComponent(topic)}`)
+    fetch(`http://localhost:3001/api/dashboard?topic=${encodeURIComponent(topic)}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
@@ -375,8 +428,8 @@ export default function App() {
 
         <div className="rightCol">
           <VelocityCard metrics={metrics} />
-          <RecentActivity />
-          <TopContributors />
+          <RecentActivity changes={changes} />
+          <TopContributors changes={changes} />
 
           {/* ✅ NEW useful card under Top Contributors */}
           <ReviewQueue changes={changes} />

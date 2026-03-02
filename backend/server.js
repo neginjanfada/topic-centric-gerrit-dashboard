@@ -12,14 +12,18 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const BASE = (process.env.GERRIT_BASE_URL || "").replace(/\/$/, "");
 
-// If you set user/token, we’ll use /a/ + Basic Auth.
-// Gerrit REST responses start with an XSSI prefix ")]}'" that must be stripped.  [oai_citation_attribution:1‡gerrit-review.googlesource.com](https://gerrit-review.googlesource.com/Documentation/rest-api.html)
+/**
+ * Build Gerrit URL
+ */
 function gerritUrl(path) {
   const hasAuth = !!(process.env.GERRIT_USER && process.env.GERRIT_TOKEN);
   const prefix = hasAuth ? "/a" : "";
   return `${BASE}${prefix}${path}`;
 }
 
+/**
+ * Build Authorization header
+ */
 function authHeader() {
   const { GERRIT_USER, GERRIT_TOKEN } = process.env;
   if (!GERRIT_USER || !GERRIT_TOKEN) return {};
@@ -29,6 +33,9 @@ function authHeader() {
   return { Authorization: `Basic ${basic}` };
 }
 
+/**
+ * Generic Gerrit GET helper
+ */
 async function gerritGet(path) {
   const res = await fetch(gerritUrl(path), {
     headers: {
@@ -40,11 +47,10 @@ async function gerritGet(path) {
   const text = await res.text();
 
   if (!res.ok) {
-    // Gerrit often returns plaintext error bodies
     throw new Error(`Gerrit ${res.status}: ${text}`);
   }
 
-  // Strip XSSI prefix line: )]}'
+  // Strip Gerrit XSSI prefix
   const cleaned = text.replace(/^\)\]\}'\n/, "");
   return JSON.parse(cleaned);
 }
@@ -57,18 +63,13 @@ app.get("/api/health", (req, res) => {
 });
 
 /**
- * Search changes by topic
- * Example: /api/changes?topic=feature/user-authentication-v2
- *
- * Uses Gerrit /changes/ endpoint.  [oai_citation_attribution:2‡gerrit-review.googlesource.com](https://gerrit-review.googlesource.com/Documentation/rest-api.html)
+ * Get changes by topic
  */
 app.get("/api/changes", async (req, res) => {
   try {
     const topic = (req.query.topic || "").trim();
     if (!topic) return res.status(400).json({ error: "Missing ?topic=" });
 
-    // q=topic:"..." is the common query pattern for Gerrit searches.
-    // We request compact JSON with pp=0 (more efficient).  [oai_citation_attribution:3‡gerrit-review.googlesource.com](https://gerrit-review.googlesource.com/Documentation/rest-api.html)
     const q = encodeURIComponent(`topic:"${topic}"`);
     const data = await gerritGet(`/changes/?q=${q}&n=50&pp=0`);
 
@@ -79,12 +80,34 @@ app.get("/api/changes", async (req, res) => {
 });
 
 /**
- * (Optional) Get one change detail
+ * NEW: Dashboard endpoint (clean architecture)
+ * This will later include metrics, contributors, activity, etc.
+ */
+app.get("/api/dashboard", async (req, res) => {
+  try {
+    const topic = (req.query.topic || "").trim();
+    if (!topic) return res.status(400).json({ error: "Missing ?topic=" });
+
+    const q = encodeURIComponent(`topic:"${topic}"`);
+    const changes = await gerritGet(`/changes/?q=${q}&n=50&pp=0`);
+
+    // For now we just return changes.
+    // Next step we will compute metrics here.
+    res.json({ topic, changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Get single change detail
  */
 app.get("/api/changes/:id", async (req, res) => {
   try {
     const id = encodeURIComponent(req.params.id);
-    const data = await gerritGet(`/changes/${id}/detail?pp=0`);
+    const data = await gerritGet(
+      `/changes/?q=${q}&n=50&pp=0&o=DETAILED_ACCOUNTS`,
+    );
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
