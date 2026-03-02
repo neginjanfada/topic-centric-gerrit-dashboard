@@ -110,3 +110,41 @@ html[data-theme="dark"] .chartEmpty {
     grid-template-columns: 1fr;
   }
 }
+
+.donutLegendRow{
+  display:flex;
+  gap:12px;
+  margin-top:10px;
+}
+
+.donutLegendItem{
+  flex:1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid rgba(148,163,184,0.18);
+  border-radius:12px;
+  background: rgba(2,6,23,0.02);
+}
+
+html[data-theme="dark"] .donutLegendItem{
+  background: rgba(148,163,184,0.06);
+}
+
+.donutDot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+}
+
+.donutLegendName{
+  font-weight:800;
+  color: var(--text);
+}
+
+.donutLegendPct{
+  margin-left:auto;
+  color: var(--muted);
+  font-weight:800;
+}

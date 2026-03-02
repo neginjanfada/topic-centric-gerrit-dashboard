@@ -9,9 +9,11 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
-
-import StatusDonut from "./StatusDonut"; // ✅ NEW
+import { useMemo } from "react";
 
 function Card({ title, children }) {
   return (
@@ -26,18 +28,27 @@ function formatDay(iso) {
   return iso ? iso.slice(0, 10) : "";
 }
 
-function buildStatusData(changes) {
-  const order = ["NEW", "MERGED", "ABANDONED", "DRAFT"];
-  const counts = new Map(order.map((s) => [s, 0]));
+/** NEW: Open-change aging buckets (only NEW) */
+function buildOpenAgingData(changes, nowMs) {
+  const buckets = [
+    { key: "0–1d", min: 0, max: 1, value: 0 },
+    { key: "1–3d", min: 1, max: 3, value: 0 },
+    { key: "3–7d", min: 3, max: 7, value: 0 },
+    { key: "7–14d", min: 7, max: 14, value: 0 },
+    { key: "14d+", min: 14, max: Infinity, value: 0 },
+  ];
 
-  for (const c of changes) {
-    const s = c.status || "UNKNOWN";
-    counts.set(s, (counts.get(s) || 0) + 1);
+  const open = changes.filter((c) => c.status === "NEW");
+
+  for (const c of open) {
+    const createdMs = c.created ? new Date(c.created).getTime() : nowMs;
+    const ageDays = Math.max(0, (nowMs - createdMs) / (1000 * 60 * 60 * 24));
+
+    const b = buckets.find((x) => ageDays >= x.min && ageDays < x.max);
+    if (b) b.value += 1;
   }
 
-  return order
-    .map((name) => ({ name, value: counts.get(name) || 0 }))
-    .filter((x) => x.value > 0);
+  return buckets;
 }
 
 function buildRepoData(changes) {
@@ -63,6 +74,19 @@ function buildTimeSeriesDaily(changes) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Donut: keep it simple (NEW vs ABANDONED shown in your UI) */
+function buildDonutStatusData(changes) {
+  const open = changes.filter((c) => c.status === "NEW").length;
+  const abandoned = changes.filter((c) => c.status === "ABANDONED").length;
+
+  const arr = [
+    { name: "Open (New)", value: open },
+    { name: "Abandoned", value: abandoned },
+  ].filter((x) => x.value > 0);
+
+  return arr;
+}
+
 function NiceTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const v = payload[0]?.value;
@@ -74,27 +98,46 @@ function NiceTooltip({ active, payload, label }) {
   );
 }
 
+function PieTip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload;
+  return (
+    <div className="chartTooltip">
+      <div className="chartTooltipLabel">{p?.name}</div>
+      <div className="chartTooltipValue">{p?.value}</div>
+    </div>
+  );
+}
+
 export default function ChartsGrid({ changes = [] }) {
   const hasData = changes.length > 0;
 
-  const statusData = buildStatusData(changes);
-  const repoData = buildRepoData(changes);
-  const timeData = buildTimeSeriesDaily(changes);
+  // keeps "now" stable for this render cycle (prevents weird re-renders)
+  const nowMs = useMemo(() => Date.now(), [changes]);
+
+  const agingData = useMemo(() => buildOpenAgingData(changes, nowMs), [changes, nowMs]);
+  const repoData = useMemo(() => buildRepoData(changes), [changes]);
+  const timeData = useMemo(() => buildTimeSeriesDaily(changes), [changes]);
+  const donutData = useMemo(() => buildDonutStatusData(changes), [changes]);
 
   const axisTick = { fill: "var(--muted)", fontSize: 12 };
   const axisLine = { stroke: "var(--border)" };
 
+  const donutColors = ["var(--chart1)", "var(--chart2)"];
+  const totalDonut = donutData.reduce((s, x) => s + x.value, 0);
+
   return (
     <div className="chartsGrid">
-      <Card title="Status Breakdown">
+      {/* ✅ Replaces redundant Status Breakdown */}
+      <Card title="Open Change Aging">
         {!hasData ? (
           <div className="chartEmpty">No data yet. Search a topic to see charts.</div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={statusData} margin={{ top: 12, right: 8, left: 0, bottom: 8 }}>
+            <BarChart data={agingData} margin={{ top: 12, right: 8, left: 0, bottom: 8 }}>
               <CartesianGrid stroke="var(--grid)" strokeDasharray="4 6" vertical={false} />
               <XAxis
-                dataKey="name"
+                dataKey="key"
                 tick={axisTick}
                 axisLine={axisLine}
                 tickLine={false}
@@ -183,8 +226,51 @@ export default function ChartsGrid({ changes = [] }) {
         )}
       </Card>
 
-      {/* ✅ NEW 4th card (fills the empty area) */}
-      <StatusDonut changes={changes} />
+      {/* ✅ Keep your donut */}
+      <Card title="Status Distribution">
+        {!hasData || donutData.length === 0 ? (
+          <div className="chartEmpty">No data yet. Search a topic to see charts.</div>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Tooltip content={<PieTip />} />
+                <Pie
+                  data={donutData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={70}
+                  outerRadius={95}
+                  paddingAngle={3}
+                  stroke="var(--card)"
+                  strokeWidth={6}
+                >
+                  {donutData.map((entry, index) => (
+                    <Cell key={entry.name} fill={donutColors[index % donutColors.length]} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+
+            {/* Simple legend like your screenshot */}
+            <div className="donutLegendRow">
+              {donutData.map((d, i) => {
+                const pct = totalDonut === 0 ? 0 : Math.round((d.value / totalDonut) * 100);
+                return (
+                  <div className="donutLegendItem" key={d.name}>
+                    <span
+                      className="donutDot"
+                      style={{ background: donutColors[i % donutColors.length] }}
+                    />
+                    <span className="donutLegendName">{d.name}</span>
+                    <span className="donutLegendPct">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Card>
     </div>
   );
 }
