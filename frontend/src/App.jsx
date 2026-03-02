@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import ChartsGrid from "./components/ChartsGrid";
 import VelocityCard from "./components/VelocityCard";
+import BuildsCard from "./components/BuildsCard";
 
 function StatCard({ label, value, icon }) {
   return (
@@ -18,9 +19,17 @@ function StatCard({ label, value, icon }) {
 function TopicOverviewCard({ topic, metrics }) {
   return (
     <div className="card">
-      <div className="cardTitle">Topic Overview</div>
-      <div className="muted">Topic Name</div>
-      <div className="topicNameLink">{topic || "—"}</div>
+      <div className="sectionHeader">
+        <div>
+          <div className="sectionTitle">Topic Overview</div>
+          <div className="sectionSubtitle">Summary and repository metrics</div>
+        </div>
+      </div>
+
+      <div className="topicName">
+        <div className="topicNameLabel">Topic</div>
+        <div className="topicNameValue">{topic || "—"}</div>
+      </div>
 
       <div className="overviewGrid">
         <div className="miniStat">
@@ -66,7 +75,7 @@ function TopicSummaryCard() {
   return (
     <div className="card">
       <div className="cardHeaderRow">
-        <div className="cardTitle">Topic Summary (AI)</div>
+        <div className="sectionTitle">Topic Summary (AI)</div>
         <button className="primaryBtn">Generate</button>
       </div>
 
@@ -118,9 +127,13 @@ function RecentActivity() {
 
   return (
     <div className="card">
-      <div className="cardTitle">Recent Activity</div>
+      <div className="sectionHeader">
+        <div>
+          <div className="sectionTitle">Recent Activity</div>
+          <div className="sectionSubtitle">Latest events and updates</div>
+        </div>
+      </div>
 
-      {/* 👇 this is the scroll container */}
       <div className="activityScroll">
         {items.map((it, idx) => (
           <div className="activityItem" key={idx}>
@@ -147,7 +160,13 @@ function TopContributors() {
 
   return (
     <div className="card">
-      <div className="cardTitle">Top Contributors</div>
+      <div className="sectionHeader">
+        <div>
+          <div className="sectionTitle">Top Contributors</div>
+          <div className="sectionSubtitle">Most active reviewers and authors</div>
+        </div>
+      </div>
+
       <div className="contributorsList">
         {people.map((p, idx) => (
           <div className="contribRow" key={idx}>
@@ -176,13 +195,14 @@ function ChangesTable({ changes }) {
     status: c.status || "—",
     revisions: "—",
     ci: "—",
-    timeline: c.created && c.updated ? `${c.created.slice(0, 10)} → ${c.updated.slice(0, 10)}` : "—",
+    timeline:
+      c.created && c.updated ? `${c.created.slice(0, 10)} → ${c.updated.slice(0, 10)}` : "—",
   }));
 
   return (
     <div className="card">
       <div className="cardHeaderRow">
-        <div className="cardTitle">Changes &amp; Timeline</div>
+        <div className="sectionTitle">Changes &amp; Timeline</div>
         <div className="muted">{changes.length} changes</div>
       </div>
 
@@ -228,42 +248,38 @@ export default function App() {
   const [changes, setChanges] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Dark mode state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "light";
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
 
-  // Apply theme to <html data-theme="...">
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
   useEffect(() => {
-      let cancelled = false;
-  
-      fetch(`/api/changes?topic=${encodeURIComponent(topic)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (cancelled) return;
-          setChanges(data.changes || []);
-        })
-        .catch((err) => console.error(err))
-        .finally(() => {
-          if (cancelled) return;
-          setLoading(false);
-        });
-  
-      return () => {
-        cancelled = true;
-      };
-    }, [topic]);
-  
-    const handleSearchSubmit = (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setTopic(topicInput.trim() || "test");
+    let cancelled = false;
+
+    setLoading(true);
+    fetch(`/api/changes?topic=${encodeURIComponent(topic)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setChanges(data.changes || []);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
     };
+  }, [topic]);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setTopic(topicInput.trim() || "test");
+  };
 
   const metrics = useMemo(() => {
     const totalChanges = changes.length;
@@ -277,12 +293,6 @@ export default function App() {
 
     const mergeRate = totalChanges === 0 ? 0 : Math.round((mergedChanges / totalChanges) * 100);
 
-    // placeholders (until CI integration)
-    const buildTotal = 0;
-    const buildSuccess = 0;
-    const buildFailure = 0;
-    const avgJobTime = null; // later: number (seconds or ms)
-
     return {
       totalChanges,
       openChanges,
@@ -291,10 +301,10 @@ export default function App() {
       repositories: repos.size,
       branches: branches.size,
       mergeRate,
-      buildTotal,
-      buildSuccess,
-      buildFailure,
-      avgJobTime,
+      buildTotal: 0,
+      buildSuccess: 0,
+      buildFailure: 0,
+      avgJobTime: null,
     };
   }, [changes]);
 
@@ -304,16 +314,14 @@ export default function App() {
         <h1 className="title">Topic-Centric Gerrit Dashboard</h1>
 
         <div className="topbarRight">
-          <form
-            className="searchBox"
-            onSubmit={handleSearchSubmit}
-          >
+          <form className="searchBox" onSubmit={handleSearchSubmit}>
             <span className="searchIcon">🔍</span>
             <input
               className="searchInput"
               value={topicInput}
               onChange={(e) => setTopicInput(e.target.value)}
               placeholder="Enter Gerrit topic name..."
+              disabled={loading}
             />
           </form>
 
@@ -348,6 +356,7 @@ export default function App() {
 
         <div className="rightCol">
           <VelocityCard metrics={metrics} />
+           <BuildsCard metrics={metrics} />
           <RecentActivity />
           <TopContributors />
         </div>

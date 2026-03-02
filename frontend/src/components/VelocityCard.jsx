@@ -1,42 +1,43 @@
+import React from "react";
+
+function val(x) {
+  if (x === null || x === undefined) return "—";
+  if (Number.isNaN(x)) return "—";
+  return x;
+}
+
 export default function VelocityCard({ metrics }) {
-  // Placeholder CI/build metrics for now (until you connect real CI data)
-  const build = {
-    total: metrics?.buildTotal ?? 0,
-    success: metrics?.buildSuccess ?? 0,
-    failure: metrics?.buildFailure ?? 0,
-  };
-
-  // NEW: Average job time (placeholder)
-  // Later you can compute it from build start/end timestamps.
-  const avgJobTime = metrics?.avgJobTime ?? "—";
-
-  const items = [
-    { label: "Median Review Duration", value: "—" },
-    { label: "Median Time to First Review", value: "—" },
-    { label: "Merges Per Day", value: "—" },
-    { label: "Open Changes", value: metrics?.openChanges ?? 0 },
-
-    // Build / CI section
-    { label: "Builds", value: build.total },
-    { label: "Build Success", value: build.success },
-    { label: "Build Failures", value: build.failure },
-
-    // NEW
-    { label: "Avg Job Time", value: avgJobTime },
-  ];
-
   return (
-    <div className="card">
+    <div className="card velocityCard">
       <div className="cardTitle">Velocity</div>
 
-      <div className="listBox">
+      <div className="velocitySection">
+        <div className="velocitySectionHeader">
+          <div className="velocitySectionTitle">REVIEW METRICS</div>
+        </div>
+
         <div className="velocity-list">
-          {items.map((it) => (
-            <div className="velocity-row" key={it.label}>
-              <div className="velocity-label">{it.label}</div>
-              <div className="velocity-value">{it.value}</div>
+          <div className="velocity-row">
+            <div className="velocity-label">Median Review Duration</div>
+            <div className="velocity-value">—</div>
+          </div>
+
+          <div className="velocity-row">
+            <div className="velocity-label">Median Time to First Review</div>
+            <div className="velocity-value">—</div>
+          </div>
+
+          <div className="velocity-row">
+            <div className="velocity-label">Merges Per Day</div>
+            <div className="velocity-value">—</div>
+          </div>
+
+          <div className="velocity-row">
+            <div className="velocity-label">Open Changes</div>
+            <div className="velocity-value">
+              {val(metrics?.openChanges)}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
