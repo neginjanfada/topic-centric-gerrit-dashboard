@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import ChartsGrid from "./components/ChartsGrid";
-import VelocityCard from "./components/VelocityCard";
-import ReviewQueue from "./components/ReviewQueue"; // ✅ NEW
+import ReviewQueue from "./components/ReviewQueue";
+import ReviewBottlenecks from "./components/ReviewBottlenecks";
 
 function StatCard({ label, value, icon }) {
   return (
@@ -124,17 +124,15 @@ function TopicSummaryCard() {
 
 function RecentActivity({ changes = [] }) {
   const items = useMemo(() => {
-    // take latest updated changes as “recent activity”
     const sorted = [...changes].sort((a, b) =>
       String(b.updated || "").localeCompare(String(a.updated || ""))
     );
 
     return sorted.slice(0, 8).map((c) => {
-      const who = c.owner?.name || c.owner?.username || "Someone";
+      const who = c.owner?.name || c.owner?.username || c.owner?.email || "Unknown";
       const id = c._number ? `#${c._number}` : c.id;
       const status = c.status || "UPDATED";
 
-      // simple action label based on status
       const action =
         status === "MERGED"
           ? "merged"
@@ -142,7 +140,6 @@ function RecentActivity({ changes = [] }) {
           ? "abandoned"
           : "updated";
 
-      // show date/time (simple for now)
       const time = c.updated ? c.updated.slice(0, 16).replace("T", " ") : "—";
 
       return { who, action, id, time };
@@ -182,7 +179,9 @@ function TopContributors({ changes = [] }) {
     const map = {};
 
     changes.forEach((c) => {
-      const owner = c.owner?.name || c.owner?.username || "Unknown";
+      const owner =
+        c.owner?.name || c.owner?.username || c.owner?.email || "Unknown";
+
       if (!map[owner]) {
         map[owner] = {
           name: owner,
@@ -245,6 +244,7 @@ function TopContributors({ changes = [] }) {
     </div>
   );
 }
+
 function ChangesTable({ changes }) {
   const rows = changes.slice(0, 10).map((c) => ({
     key: c.id,
@@ -361,11 +361,6 @@ export default function App() {
     const mergeRate =
       totalChanges === 0 ? 0 : Math.round((mergedChanges / totalChanges) * 100);
 
-    const buildTotal = 0;
-    const buildSuccess = 0;
-    const buildFailure = 0;
-    const avgJobTime = null;
-
     return {
       totalChanges,
       openChanges,
@@ -374,10 +369,6 @@ export default function App() {
       repositories: repos.size,
       branches: branches.size,
       mergeRate,
-      buildTotal,
-      buildSuccess,
-      buildFailure,
-      avgJobTime,
     };
   }, [changes]);
 
@@ -413,9 +404,21 @@ export default function App() {
           value={loading ? "…" : `${metrics.mergedChanges}/${metrics.totalChanges}`}
           icon="📈"
         />
-        <StatCard label="Open Changes" value={loading ? "…" : metrics.openChanges} icon="👥" />
-        <StatCard label="Merged" value={loading ? "…" : metrics.mergedChanges} icon="⚡" />
-        <StatCard label="Merge Rate" value={loading ? "…" : `${metrics.mergeRate}%`} icon="📈" />
+        <StatCard
+          label="Open Changes"
+          value={loading ? "…" : metrics.openChanges}
+          icon="👥"
+        />
+        <StatCard
+          label="Merged"
+          value={loading ? "…" : metrics.mergedChanges}
+          icon="⚡"
+        />
+        <StatCard
+          label="Merge Rate"
+          value={loading ? "…" : `${metrics.mergeRate}%`}
+          icon="📈"
+        />
       </div>
 
       <div className="content">
@@ -427,11 +430,9 @@ export default function App() {
         </div>
 
         <div className="rightCol">
-          <VelocityCard metrics={metrics} />
+          <ReviewBottlenecks changes={changes} />
           <RecentActivity changes={changes} />
           <TopContributors changes={changes} />
-
-          {/* ✅ NEW useful card under Top Contributors */}
           <ReviewQueue changes={changes} />
         </div>
       </div>
