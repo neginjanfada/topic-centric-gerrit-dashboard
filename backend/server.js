@@ -297,103 +297,52 @@ function buildVelocity(changes) {
  * Builds from Gerrit labels / submit requirements
  */
 function buildBuilds(changes) {
-  let total = 0;
   let success = 0;
   let failures = 0;
 
-  const buildLikeLabelNames = [
-    "verified",
-    "ci",
-    "build",
-    "presubmit",
-    "cq",
-    "commit-queue",
-    "kokoro",
-    "trybot",
-  ];
+  for (const change of changes) {
+    let changeSuccess = false;
+    let changeFailure = false;
 
-  const buildLikeRequirementNames = [
-    "verified",
-    "ci",
-    "build",
-    "presubmit",
-    "cq",
-    "commit-queue",
-    "kokoro",
-    "trybot",
-  ];
+    // 1) Look at Verified votes from service users / bots
+    const verifiedVotes = change?.labels?.Verified?.all || [];
 
-  for (const c of changes) {
-    let countedThisChange = false;
-    let isSuccess = false;
-    let isFailure = false;
+    for (const vote of verifiedVotes) {
+      const isBot =
+        Array.isArray(vote.tags) && vote.tags.includes("SERVICE_USER");
 
-    // Try labels first
-    const labels = c.labels || {};
-    for (const [labelName, labelInfo] of Object.entries(labels)) {
-      const name = labelName.toLowerCase();
-      const looksLikeBuild = buildLikeLabelNames.some((x) => name.includes(x));
-      if (!looksLikeBuild) continue;
+      if (!isBot) continue;
 
-      countedThisChange = true;
-
-      const value =
-        typeof labelInfo?.value === "number"
-          ? labelInfo.value
-          : typeof labelInfo?.approved?.value === "number"
-            ? labelInfo.approved.value
-            : labelInfo?.approved
-              ? 1
-              : labelInfo?.rejected
-                ? -1
-                : null;
-
-      if (value != null) {
-        if (value > 0) isSuccess = true;
-        if (value < 0) isFailure = true;
-      }
+      if (vote.value === 1) changeSuccess = true;
+      if (vote.value === -1) changeFailure = true;
     }
 
-    // Then try submit requirements
-    const submitRequirements = Array.isArray(c.submit_requirements)
-      ? c.submit_requirements
-      : [];
+    // 2) Also inspect bot-generated messages (ex: Zuul check)
+    const messages = Array.isArray(change.messages) ? change.messages : [];
 
-    for (const sr of submitRequirements) {
-      const name = String(sr?.name || "").toLowerCase();
-      const looksLikeBuild = buildLikeRequirementNames.some((x) =>
-        name.includes(x),
-      );
-      if (!looksLikeBuild) continue;
+    for (const msg of messages) {
+      const tag = String(msg.tag || "").toLowerCase();
+      const authorTags = Array.isArray(msg.author?.tags) ? msg.author.tags : [];
+      const isBotMessage =
+        tag.includes("zuul") ||
+        tag.includes("check") ||
+        authorTags.includes("SERVICE_USER");
 
-      countedThisChange = true;
+      if (!isBotMessage) continue;
 
-      const status = String(sr?.status || "").toUpperCase();
-      if (
-        status === "SATISFIED" ||
-        status === "OVERRIDDEN" ||
-        status === "FORCED"
-      ) {
-        isSuccess = true;
-      }
-      if (
-        status === "UNSATISFIED" ||
-        status === "ERROR" ||
-        status === "RULE_ERROR"
-      ) {
-        isFailure = true;
-      }
+      const text = String(msg.message || "").toLowerCase();
+
+      if (text.includes("verified+1")) changeSuccess = true;
+      if (text.includes("verified-1")) changeFailure = true;
     }
 
-    if (!countedThisChange) continue;
-
-    total += 1;
-    if (isSuccess) success += 1;
-    else if (isFailure) failures += 1;
+    // Count one result per change
+    if (changeFailure) failures += 1;
+    else if (changeSuccess) success += 1;
   }
 
   return {
-    total,
+    total: success + failures,
     success,
     failures,
     avgJobTime: null,

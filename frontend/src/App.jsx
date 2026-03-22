@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import ChartsGrid from "./components/ChartsGrid";
 import ReviewQueue from "./components/ReviewQueue";
 import ReviewBottlenecks from "./components/ReviewBottlenecks";
+import BuildsCard from "./components/BuildsCard";
 
 function StatCard({ label, value, icon }) {
   return (
@@ -122,30 +123,7 @@ function TopicSummaryCard() {
   );
 }
 
-function RecentActivity({ changes = [] }) {
-  const items = useMemo(() => {
-    const sorted = [...changes].sort((a, b) =>
-      String(b.updated || "").localeCompare(String(a.updated || ""))
-    );
-
-    return sorted.slice(0, 8).map((c) => {
-      const who = c.owner?.name || c.owner?.username || c.owner?.email || "Unknown";
-      const id = c._number ? `#${c._number}` : c.id;
-      const status = c.status || "UPDATED";
-
-      const action =
-        status === "MERGED"
-          ? "merged"
-          : status === "ABANDONED"
-          ? "abandoned"
-          : "updated";
-
-      const time = c.updated ? c.updated.slice(0, 16).replace("T", " ") : "—";
-
-      return { who, action, id, time };
-    });
-  }, [changes]);
-
+function RecentActivity({ activity = [] }) {
   return (
     <div className="card">
       <div className="sectionHeader">
@@ -156,10 +134,10 @@ function RecentActivity({ changes = [] }) {
       </div>
 
       <div className="activityScroll">
-        {items.length === 0 ? (
+        {activity.length === 0 ? (
           <div className="muted">No activity yet.</div>
         ) : (
-          items.map((it, idx) => (
+          activity.map((it, idx) => (
             <div className="activityItem" key={idx}>
               <div className="activityMain">
                 <span className="bold">{it.who}</span> {it.action}{" "}
@@ -174,34 +152,7 @@ function RecentActivity({ changes = [] }) {
   );
 }
 
-function TopContributors({ changes = [] }) {
-  const contributors = useMemo(() => {
-    const map = {};
-
-    changes.forEach((c) => {
-      const owner =
-        c.owner?.name || c.owner?.username || c.owner?.email || "Unknown";
-
-      if (!map[owner]) {
-        map[owner] = {
-          name: owner,
-          total: 0,
-          merged: 0,
-          open: 0,
-        };
-      }
-
-      map[owner].total += 1;
-
-      if (c.status === "MERGED") map[owner].merged += 1;
-      if (c.status === "NEW") map[owner].open += 1;
-    });
-
-    return Object.values(map)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 5);
-  }, [changes]);
-
+function TopContributors({ contributors = [] }) {
   return (
     <div className="card">
       <div className="sectionHeader">
@@ -219,19 +170,10 @@ function TopContributors({ changes = [] }) {
         ) : (
           contributors.map((p, idx) => (
             <div className="contribRow" key={idx}>
-              <div className="avatar">
-                {p.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
+              <div className="avatar">{p.initials}</div>
               <div className="contribInfo">
                 <div className="bold">{p.name}</div>
-                <div className="muted">
-                  {p.total} changes • {p.merged} merged
-                </div>
+                <div className="muted">{p.meta}</div>
               </div>
               <div className="contribTotal">
                 <div className="bold">{p.total}</div>
@@ -311,6 +253,24 @@ export default function App() {
   const [topicInput, setTopicInput] = useState("test");
   const [topic, setTopic] = useState("test");
   const [changes, setChanges] = useState([]);
+  const [metrics, setMetrics] = useState({
+    totalChanges: 0,
+    openChanges: 0,
+    mergedChanges: 0,
+    abandonedChanges: 0,
+    repositories: 0,
+    branches: 0,
+    mergeRate: 0,
+  });
+  const [activity, setActivity] = useState([]);
+  const [contributors, setContributors] = useState([]);
+  const [reviewQueue, setReviewQueue] = useState([]);
+  const [builds, setBuilds] = useState({
+    total: 0,
+    success: 0,
+    failures: 0,
+    avgJobTime: null,
+  });
   const [loading, setLoading] = useState(false);
 
   const [theme, setTheme] = useState(() => {
@@ -330,11 +290,32 @@ export default function App() {
       .then((data) => {
         if (cancelled) return;
         setChanges(data.changes || []);
+        setMetrics(
+          data.metrics || {
+            totalChanges: 0,
+            openChanges: 0,
+            mergedChanges: 0,
+            abandonedChanges: 0,
+            repositories: 0,
+            branches: 0,
+            mergeRate: 0,
+          }
+        );
+        setActivity(data.activity || []);
+        setContributors(data.contributors || []);
+        setReviewQueue(data.reviewQueue || []);
+        setBuilds(
+          data.builds || {
+            total: 0,
+            success: 0,
+            failures: 0,
+            avgJobTime: null,
+          }
+        );
       })
       .catch((err) => console.error(err))
       .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       });
 
     return () => {
@@ -347,30 +328,6 @@ export default function App() {
     setLoading(true);
     setTopic(topicInput.trim() || "test");
   };
-
-  const metrics = useMemo(() => {
-    const totalChanges = changes.length;
-
-    const openChanges = changes.filter((c) => c.status === "NEW").length;
-    const mergedChanges = changes.filter((c) => c.status === "MERGED").length;
-    const abandonedChanges = changes.filter((c) => c.status === "ABANDONED").length;
-
-    const repos = new Set(changes.map((c) => c.project).filter(Boolean));
-    const branches = new Set(changes.map((c) => c.branch).filter(Boolean));
-
-    const mergeRate =
-      totalChanges === 0 ? 0 : Math.round((mergedChanges / totalChanges) * 100);
-
-    return {
-      totalChanges,
-      openChanges,
-      mergedChanges,
-      abandonedChanges,
-      repositories: repos.size,
-      branches: branches.size,
-      mergeRate,
-    };
-  }, [changes]);
 
   return (
     <div className="page">
@@ -400,7 +357,7 @@ export default function App() {
 
       <div className="statsRow">
         <StatCard
-          label="Review Velocity"
+          label="Completion Rate"
           value={loading ? "…" : `${metrics.mergedChanges}/${metrics.totalChanges}`}
           icon="📈"
         />
@@ -431,9 +388,10 @@ export default function App() {
 
         <div className="rightCol">
           <ReviewBottlenecks changes={changes} />
-          <RecentActivity changes={changes} />
-          <TopContributors changes={changes} />
-          <ReviewQueue changes={changes} />
+          <BuildsCard builds={builds} />
+          <RecentActivity activity={activity} />
+          <TopContributors contributors={contributors} />
+          <ReviewQueue changes={reviewQueue} />
         </div>
       </div>
     </div>
