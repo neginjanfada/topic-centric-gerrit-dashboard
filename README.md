@@ -1,47 +1,67 @@
 # Topic-Centric Gerrit Dashboard
 
-A topic-based analytics dashboard built on top of the Gerrit REST API.
+A full-stack dashboard for analyzing Gerrit topics, visualizing development activity, and generating AI-powered summaries to help users quickly understand code changes.
 
-This project provides a structured visualization layer over Gerrit topics, enabling better understanding of change activity, review velocity, and CI performance.
-
-
-## Project Architecture
-
-This project follows a full-stack architecture:
-
-### Frontend
-- React + Vite
-- Modular component structure
-- Dashboard layout with:
-  - Topic Overview
-  - Velocity Metrics
-  - CI Metrics (Build / Success / Failure)
-  - Average Job Time
-  - Changes Table
-  - Recent Activity
-  - Contributors
-
-### Backend
-- Node.js + Express
-- Proxy layer to Gerrit REST API
-- CORS-enabled API endpoints
-- Topic-based change fetching
-
+---
 
 ## Features
 
-- Search Gerrit topics
-- Fetch changes using Gerrit REST API
-- Compute:
-  - Total changes
-  - Open / Merged / Abandoned
-  - Merge rate
-  - Repository & branch count
-- Velocity metrics (placeholders for future computation)
-- CI build metrics (extendable)
-- Scrollable activity panel
-- Clean UI layout
+- Topic analytics, including total changes, merge rate, repositories, and branches
+- Contributor insights with top contributor activity
+- Review bottleneck detection for stale changes and unresolved comments
+- Build status overview using Gerrit CI signals
+- Interactive dashboard with a clean, modern UI
+- AI-generated topic summaries using a local LLM through Ollama
+
+---
+
+## Screenshots
 
 ### Dashboard Overview
+
 ![Dashboard Overview](screenshots/dashboard1.png)
 
+### AI Topic Summary
+
+![AI Topic Summary](screenshots/dashboard2.png)
+
+---
+
+## Demo
+
+[Watch the demo video](demo/Demo.mp4)
+
+---
+
+## Architecture
+
+Frontend (React)  
+↓  
+Backend (Node.js / Express)  
+↓  
+Gerrit REST API  
+↓  
+Ollama (local LLM for summaries)
+
+---
+
+## Tech Stack
+
+- Frontend: React with Vite
+- Backend: Node.js with Express
+- API: Gerrit REST API
+- AI: Ollama
+- Styling: Custom CSS with light and dark mode support
+
+---
+
+## How to Run Locally
+
+Make sure you have Node.js and Ollama installed.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/neginjanfada/topic-centric-gerrit-dashboard.git
+cd topic-centric-gerrit-dashboard
+```
