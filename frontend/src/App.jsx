@@ -4,6 +4,7 @@ import ChartsGrid from "./components/ChartsGrid";
 import ReviewQueue from "./components/ReviewQueue";
 import ReviewBottlenecks from "./components/ReviewBottlenecks";
 import BuildsCard from "./components/BuildsCard";
+import TopicSummaryCard from "./components/TopicSummaryCard";
 
 function StatCard({ label, value, icon }) {
   return (
@@ -66,57 +67,6 @@ function TopicOverviewCard({ topic, metrics }) {
         <div className="miniStat span2">
           <div className="miniLabel">Merge Rate</div>
           <div className="miniValue">{metrics.mergeRate}%</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TopicSummaryCard() {
-  return (
-    <div className="card">
-      <div className="cardHeaderRow">
-        <div>
-          <div className="sectionTitle">Topic Summary (AI)</div>
-          <div className="sectionSubtitle">Auto-generated overview</div>
-        </div>
-        <button className="primaryBtn">Generate</button>
-      </div>
-
-      <div className="summaryBox">
-        <div className="summaryCol">
-          <div className="summaryLabel">GOAL</div>
-          <div className="summaryText">
-            Implements authentication v2 with OAuth2, MFA, and improved session
-            management.
-          </div>
-        </div>
-
-        <div className="summaryCol">
-          <div className="summaryLabel">KEY CHANGES</div>
-          <ul className="summaryList">
-            <li>OAuth2 (Google, GitHub)</li>
-            <li>Multi-factor auth (TOTP/SMS)</li>
-            <li>Redis session service</li>
-            <li>Security preferences schema</li>
-            <li>v2 API migration</li>
-          </ul>
-        </div>
-
-        <div className="summaryCol">
-          <div className="summaryLabel">BLOCKERS</div>
-          <ul className="summaryList">
-            <li>#54321: Redis cluster approval pending</li>
-            <li>Security audit required</li>
-            <li>DBA review needed</li>
-          </ul>
-        </div>
-
-        <div className="summaryCol">
-          <div className="summaryLabel">READ ORDER</div>
-          <div className="summaryText">
-            #54312 → #54315 → #54318 → API changes
-          </div>
         </div>
       </div>
     </div>
@@ -273,6 +223,10 @@ export default function App() {
   });
   const [loading, setLoading] = useState(false);
 
+  const [aiSummary, setAiSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
+
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("theme") || "light";
   });
@@ -284,11 +238,21 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
 
-    fetch(`http://localhost:3001/api/dashboard?topic=${encodeURIComponent(topic)}`)
-      .then((res) => res.json())
+    fetch(
+      `http://localhost:3001/api/dashboard?topic=${encodeURIComponent(topic)}`
+    )
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load dashboard");
+        }
+        return data;
+      })
       .then((data) => {
         if (cancelled) return;
+
         setChanges(data.changes || []);
         setMetrics(
           data.metrics || {
@@ -312,8 +276,13 @@ export default function App() {
             avgJobTime: null,
           }
         );
+
+        setSummaryError("");
+        setAiSummary("");
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error("Dashboard load error:", err);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -325,8 +294,48 @@ export default function App() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSummaryError("");
+    setAiSummary("");
     setTopic(topicInput.trim() || "test");
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!topic?.trim()) return;
+
+    try {
+      setSummaryLoading(true);
+      setSummaryError("");
+      setAiSummary("");
+
+      const res = await fetch("http://localhost:3001/api/generate-summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ topic: topic.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to generate summary");
+      }
+
+      if (!data.summary) {
+        throw new Error("No summary returned from backend");
+      }
+
+      setAiSummary(
+        typeof data.summary === "string"
+          ? data.summary
+          : JSON.stringify(data.summary, null, 2)
+      );
+    } catch (err) {
+      console.error("Summary generation error:", err);
+      setSummaryError(err.message || "Something went wrong");
+    } finally {
+      setSummaryLoading(false);
+    }
   };
 
   return (
@@ -358,7 +367,9 @@ export default function App() {
       <div className="statsRow">
         <StatCard
           label="Completion Rate"
-          value={loading ? "…" : `${metrics.mergedChanges}/${metrics.totalChanges}`}
+          value={
+            loading ? "…" : `${metrics.mergedChanges}/${metrics.totalChanges}`
+          }
           icon="📈"
         />
         <StatCard
@@ -381,7 +392,12 @@ export default function App() {
       <div className="content">
         <div className="leftCol">
           <TopicOverviewCard topic={topic} metrics={metrics} />
-          <TopicSummaryCard />
+          <TopicSummaryCard
+            onGenerate={handleGenerateSummary}
+            summaryLoading={summaryLoading}
+            summaryError={summaryError}
+            aiSummary={aiSummary}
+          />
           <ChartsGrid changes={changes} />
           <ChangesTable changes={changes} />
         </div>

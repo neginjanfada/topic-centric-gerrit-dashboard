@@ -12,6 +12,9 @@ app.use(express.json());
 const PORT = process.env.PORT || 3001;
 const BASE = (process.env.GERRIT_BASE_URL || "").replace(/\/$/, "");
 
+const OLLAMA_URL = "http://localhost:11434/api/generate";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen:0.5b";
+
 /**
  * Build Gerrit URL
  */
@@ -50,7 +53,6 @@ async function gerritGet(path) {
     throw new Error(`Gerrit ${res.status}: ${text}`);
   }
 
-  // Strip Gerrit XSSI prefix
   const cleaned = text.replace(/^\)\]\}'\n/, "");
   return JSON.parse(cleaned);
 }
@@ -95,7 +97,8 @@ async function searchChanges(query) {
       `&o=DETAILED_ACCOUNTS` +
       `&o=LABELS` +
       `&o=DETAILED_LABELS` +
-      `&o=SUBMIT_REQUIREMENTS`,
+      `&o=SUBMIT_REQUIREMENTS` +
+      `&o=MESSAGES`,
   );
 
   return safeArray(data);
@@ -108,7 +111,6 @@ async function searchChanges(query) {
  * 3) subject search
  */
 async function fetchTopicChanges(topic) {
-  // First attempt: strict topic search
   let data = await searchChanges(`topic:"${topic}"`);
   if (data.length > 0) {
     return {
@@ -119,7 +121,6 @@ async function fetchTopicChanges(topic) {
 
   console.log(`No topic results for "${topic}". Trying message search...`);
 
-  // Second attempt: commit message search
   data = await searchChanges(`message:${topic}`);
   if (data.length > 0) {
     return {
@@ -130,7 +131,6 @@ async function fetchTopicChanges(topic) {
 
   console.log(`No message results for "${topic}". Trying subject search...`);
 
-  // Third attempt: subject search
   data = await searchChanges(`subject:${topic}`);
   return {
     changes: data,
@@ -181,7 +181,6 @@ function buildRecentActivity(changes) {
       let action = "updated";
       if (c.status === "MERGED") action = "merged";
       else if (c.status === "ABANDONED") action = "abandoned";
-      else if (c.status === "NEW") action = "updated";
 
       return {
         who: formatOwner(c),
@@ -259,12 +258,9 @@ function buildReviewQueue(changes) {
 
 /**
  * Velocity
- * Exact review timings need richer per-change review/message data,
- * so some fields remain null for now.
  */
 function buildVelocity(changes) {
   const merged = changes.filter((c) => c.status === "MERGED");
-
   let mergesPerDay = null;
 
   if (merged.length > 0) {
@@ -304,7 +300,6 @@ function buildBuilds(changes) {
     let changeSuccess = false;
     let changeFailure = false;
 
-    // 1) Look at Verified votes from service users / bots
     const verifiedVotes = change?.labels?.Verified?.all || [];
 
     for (const vote of verifiedVotes) {
@@ -317,7 +312,6 @@ function buildBuilds(changes) {
       if (vote.value === -1) changeFailure = true;
     }
 
-    // 2) Also inspect bot-generated messages (ex: Zuul check)
     const messages = Array.isArray(change.messages) ? change.messages : [];
 
     for (const msg of messages) {
@@ -336,7 +330,6 @@ function buildBuilds(changes) {
       if (text.includes("verified-1")) changeFailure = true;
     }
 
-    // Count one result per change
     if (changeFailure) failures += 1;
     else if (changeSuccess) success += 1;
   }
@@ -350,10 +343,249 @@ function buildBuilds(changes) {
 }
 
 /**
+ * -------- REVIEW BOTTLENECKS --------
+ */
+function buildReviewBottlenecks(changes) {
+  const now = Date.now();
+  const openChanges = changes.filter((c) => c.status === "NEW");
+
+  let oldestOpenDays = 0;
+  let staleChanges = 0;
+  let highComment = 0;
+  let unresolved = 0;
+
+  for (const c of openChanges) {
+    const createdMs = toDateMs(c.created);
+    const updatedMs = toDateMs(c.updated);
+
+    if (createdMs) {
+      const ageDays = Math.floor((now - createdMs) / (1000 * 60 * 60 * 24));
+      if (ageDays > oldestOpenDays) oldestOpenDays = ageDays;
+    }
+
+    if (updatedMs) {
+      const staleDays = Math.floor((now - updatedMs) / (1000 * 60 * 60 * 24));
+      if (staleDays >= 7) staleChanges += 1;
+    }
+
+    if ((c.total_comment_count || 0) >= 10) {
+      highComment += 1;
+    }
+
+    if ((c.unresolved_comment_count || 0) > 0) {
+      unresolved += 1;
+    }
+  }
+
+  return {
+    oldestOpenDays,
+    staleChanges,
+    highComment,
+    unresolved,
+  };
+}
+
+/**
+ * -------- SUMMARY HELPERS --------
+ */
+function summarizeChangesForPrompt(changes) {
+  return changes
+    .slice(0, 8)
+    .map((c, index) => {
+      const comments = c.total_comment_count ?? 0;
+      const unresolved = c.unresolved_comment_count ?? 0;
+      const owner = formatOwner(c);
+      const id = c._number ? `#${c._number}` : c.id;
+
+      return `${index + 1}. ${id}
+Subject: ${c.subject || "No subject"}
+Status: ${c.status || "UNKNOWN"}
+Owner: ${owner}
+Repository: ${c.project || "Unknown repo"}
+Comments: ${comments}
+Unresolved: ${unresolved}`;
+    })
+    .join("\n\n");
+}
+
+function buildLLMPrompt(topic, changes, metrics, builds) {
+  const formattedChanges = summarizeChangesForPrompt(changes);
+
+  return `
+Write a short Gerrit dashboard summary.
+
+Topic: ${topic}
+
+Facts:
+- Total changes: ${metrics.totalChanges}
+- Open changes: ${metrics.openChanges}
+- Merged changes: ${metrics.mergedChanges}
+- Abandoned changes: ${metrics.abandonedChanges}
+- Merge rate: ${metrics.mergeRate}%
+- Successful builds: ${builds.success}
+- Failed builds: ${builds.failures}
+
+Changes:
+${formattedChanges}
+
+Write exactly 2 short sentences in plain English.
+Sentence 1: explain what the topic appears to be about based only on the visible change subjects.
+Sentence 2: explain whether the work looks active, completed, or blocked based only on open, merged, abandoned, unresolved, and build information.
+
+Do not use JSON.
+Do not use bullet points.
+Do not use numbering.
+Do not repeat the instructions.
+Do not invent technical details that are not visible in the change subjects or metadata.
+If the topic is unclear, say the exact purpose is not fully clear from the visible change metadata.
+`;
+}
+
+function buildFallbackSummary(topic, changes, metrics, builds, contributors) {
+  const topSubjects = changes
+    .slice(0, 3)
+    .map((c) => c.subject)
+    .filter(Boolean);
+
+  const leadContributor = contributors[0]?.name;
+
+  let firstSentence = `The exact purpose of the topic "${topic}" is not fully clear from the visible change metadata.`;
+  if (topSubjects.length > 0) {
+    firstSentence = `This topic appears to involve changes such as ${topSubjects.join("; ")}.`;
+  }
+
+  let secondSentence = "Overall, the work appears to be in progress.";
+  if (
+    metrics.totalChanges > 0 &&
+    metrics.mergedChanges === metrics.totalChanges
+  ) {
+    secondSentence = "Overall, the work appears to be completed.";
+  } else if (metrics.openChanges > 0 && metrics.mergedChanges > 0) {
+    secondSentence =
+      "Overall, the work appears active, with both open and merged changes visible.";
+  } else if (metrics.openChanges > 0 && metrics.mergedChanges === 0) {
+    secondSentence = "Overall, the work appears to still be under review.";
+  }
+
+  if (changes.some((c) => (c.unresolved_comment_count || 0) > 0)) {
+    secondSentence += " Some unresolved review discussion is also visible.";
+  } else if (builds.failures > 0) {
+    secondSentence +=
+      " Some build failures are visible in the available CI data.";
+  } else if (leadContributor) {
+    secondSentence += ` The most active contributor appears to be ${leadContributor}.`;
+  }
+
+  return `${firstSentence} ${secondSentence}`;
+}
+
+function cleanModelSummary(raw) {
+  if (!raw) return "";
+
+  let text = String(raw).trim();
+
+  text = text.replace(/^```[\w-]*\n?/, "");
+  text = text.replace(/```$/, "");
+  text = text.replace(/^["'`]+|["'`]+$/g, "");
+  text = text.replace(/\s+/g, " ").trim();
+
+  const bannedPatterns = [
+    /^\{/,
+    /"goal"/i,
+    /"keyChanges"/i,
+    /"readOrder"/i,
+    /one short sentence/i,
+    /short item/i,
+    /instructions:/i,
+    /return plain text only/i,
+    /do not use json/i,
+    /sentence 1:/i,
+    /sentence 2:/i,
+    /say what the topic appears/i,
+    /say whether the work looks/i,
+    /visible change metadata/i,
+  ];
+
+  for (const pattern of bannedPatterns) {
+    if (pattern.test(text)) return "";
+  }
+
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const unique = [];
+  const seen = new Set();
+
+  for (const sentence of sentences) {
+    const key = sentence.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(sentence);
+    }
+  }
+
+  const result = unique.slice(0, 2).join(" ").trim();
+  if (!result || result.length < 40) return "";
+
+  return result;
+}
+
+async function generateTopicSummary(
+  topic,
+  changes,
+  metrics,
+  contributors,
+  builds,
+) {
+  if (!changes || changes.length === 0) {
+    return "No summary is available because no changes were found for this topic.";
+  }
+
+  try {
+    const prompt = buildLLMPrompt(topic, changes, metrics, builds);
+
+    const res = await fetch(OLLAMA_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        prompt,
+        stream: false,
+        options: {
+          temperature: 0.0,
+          num_predict: 90,
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to generate summary with Ollama");
+    }
+
+    const raw = data.response?.trim();
+    const cleaned = cleanModelSummary(raw);
+
+    if (cleaned) {
+      return cleaned;
+    }
+  } catch (err) {
+    console.error("Ollama summary fallback triggered:", err.message);
+  }
+
+  return buildFallbackSummary(topic, changes, metrics, builds, contributors);
+}
+
+/**
  * Health check
  */
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, ollamaModel: OLLAMA_MODEL });
 });
 
 /**
@@ -392,6 +624,7 @@ app.get("/api/dashboard", async (req, res) => {
     const reviewQueue = buildReviewQueue(changes);
     const velocity = buildVelocity(changes);
     const builds = buildBuilds(changes);
+    const bottlenecks = buildReviewBottlenecks(changes);
 
     const buildDebug = changes.slice(0, 5).map((c) => ({
       id: c._number,
@@ -412,10 +645,47 @@ app.get("/api/dashboard", async (req, res) => {
       reviewQueue,
       velocity,
       builds,
+      bottlenecks,
       buildDebug,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * LLM summary endpoint
+ */
+app.post("/api/generate-summary", async (req, res) => {
+  try {
+    const topic = String(req.body?.topic || "").trim();
+    if (!topic) {
+      return res.status(400).json({ error: "Missing topic in request body" });
+    }
+
+    const { changes, searchMode } = await fetchTopicChanges(topic);
+    const metrics = buildMetrics(changes);
+    const contributors = buildContributors(changes);
+    const builds = buildBuilds(changes);
+
+    const summary = await generateTopicSummary(
+      topic,
+      changes,
+      metrics,
+      contributors,
+      builds,
+    );
+
+    res.json({
+      topic,
+      searchMode,
+      summary,
+    });
+  } catch (err) {
+    console.error("LLM summary error:", err);
+    res
+      .status(500)
+      .json({ error: err.message || "Failed to generate summary" });
   }
 });
 
@@ -426,7 +696,7 @@ app.get("/api/changes/:id", async (req, res) => {
   try {
     const id = encodeURIComponent(req.params.id);
     const data = await gerritGet(
-      `/changes/${id}/detail?pp=0&o=DETAILED_ACCOUNTS&o=LABELS&o=DETAILED_LABELS&o=SUBMIT_REQUIREMENTS`,
+      `/changes/${id}/detail?pp=0&o=DETAILED_ACCOUNTS&o=LABELS&o=DETAILED_LABELS&o=SUBMIT_REQUIREMENTS&o=MESSAGES`,
     );
     res.json(data);
   } catch (err) {
@@ -436,4 +706,5 @@ app.get("/api/changes/:id", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Backend listening on http://localhost:${PORT}`);
+  console.log(`Using Ollama model: ${OLLAMA_MODEL}`);
 });

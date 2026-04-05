@@ -1,46 +1,58 @@
-import "./Card.css";
 
-export default function TopicSummaryCard() {
+export default function TopicSummaryCard({
+  onGenerate,
+  summaryLoading,
+  summaryError,
+  aiSummary,
+}) {
+  const displaySummary =
+    typeof aiSummary === "string"
+      ? aiSummary
+      : aiSummary
+        ? JSON.stringify(aiSummary, null, 2)
+        : "";
+
   return (
     <div className="card">
-      <div className="cardHeader">
-        <h2>Topic Summary (AI)</h2>
-        <button className="primaryBtn">Generate</button>
+      <div className="cardHeaderRow">
+        <div>
+          <div className="sectionTitle">Topic Summary (AI)</div>
+          <div className="sectionSubtitle">Auto-generated overview</div>
+        </div>
+
+        <button
+          className="primaryBtn"
+          onClick={onGenerate}
+          disabled={summaryLoading}
+        >
+          {summaryLoading ? "Generating..." : "Generate"}
+        </button>
       </div>
 
-      <div className="summaryGrid">
-        <div>
-          <h4>Goal</h4>
-          <p>
-            Implements authentication v2 with OAuth2, MFA, and improved session
-            management.
-          </p>
-        </div>
-
-        <div>
-          <h4>Key Changes</h4>
-          <ul>
-            <li>OAuth2 (Google, GitHub)</li>
-            <li>Multi-factor auth (TOTP/SMS)</li>
-            <li>Redis session service</li>
-            <li>Security preferences schema</li>
-            <li>v2 API migration</li>
-          </ul>
-        </div>
-
-        <div>
-          <h4>Blockers</h4>
-          <ul>
-            <li>#54321 Redis cluster approval pending</li>
-            <li>Security audit required</li>
-            <li>DBA review needed</li>
-          </ul>
-        </div>
-
-        <div>
-          <h4>Read Order</h4>
-          <p>#54312 → #54315 → #54318 → API changes</p>
-        </div>
+      <div className="summarySingleCard">
+        {summaryLoading ? (
+          <div className="summaryText">Generating summary...</div>
+        ) : summaryError ? (
+          <>
+            <div className="summaryLabel">ERROR</div>
+            <div className="summaryText">{summaryError}</div>
+          </>
+        ) : displaySummary ? (
+          <>
+            <div className="summaryLabel">SUMMARY</div>
+            <div className="summaryText" style={{ whiteSpace: "pre-wrap" }}>
+              {displaySummary}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="summaryLabel">SUMMARY</div>
+            <div className="summaryText">
+              Click Generate to create a short and clear AI summary for this
+              topic.
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

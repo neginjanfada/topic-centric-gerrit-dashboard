@@ -8,12 +8,10 @@
   --radius: 16px;
   --blue: #2563eb;
 
-  /* extra surfaces */
   --surface: rgba(2, 6, 23, 0.02);
   --surface-strong: #fbfdff;
 }
 
-/* Dark mode tokens */
 html[data-theme="dark"] {
   --bg: #0b1220;
   --card: #0f172a;
@@ -179,7 +177,6 @@ body {
   align-content: start;
 }
 
-/* ✅ Card styling */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -190,7 +187,6 @@ body {
   flex-direction: column;
 }
 
-/* Modern section header */
 .sectionHeader {
   display: flex;
   align-items: flex-start;
@@ -212,25 +208,26 @@ body {
   margin-top: 6px;
 }
 
-/* Common text helpers */
 .muted {
   color: var(--muted);
   font-size: 13px;
 }
+
 .bold {
   font-weight: 800;
 }
+
 .link {
   color: var(--blue);
   font-weight: 700;
   cursor: pointer;
 }
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
 }
 
-/* Buttons */
 .primaryBtn {
   background: var(--blue);
   color: white;
@@ -239,6 +236,11 @@ body {
   border-radius: 10px;
   font-weight: 800;
   cursor: pointer;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* =========================
@@ -310,28 +312,46 @@ body {
   border-radius: 14px;
   background: var(--surface);
   padding: 14px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  margin-top: 12px;
+}
+
+.summaryCol {
+  width: 100%;
+}
+
+.summarySingleCard {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px;
+  margin-top: 12px;
+  background: var(--surface);
+  min-height: 180px;
 }
 
 .summaryLabel {
-  font-size: 11px;
-  color: var(--muted);
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-bottom: 14px;
+  text-transform: uppercase;
 }
 
 .summaryText {
-  margin-top: 6px;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 18px;
+  line-height: 1.75;
+  color: var(--text);
 }
 
 .summaryList {
-  margin: 8px 0 0;
+  margin: 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: 14px;
+}
+
+.summaryList li {
+  margin-bottom: 8px;
+  line-height: 1.6;
 }
 
 /* =========================
@@ -430,6 +450,7 @@ body {
   background: rgba(34, 197, 94, 0.15);
   color: #22c55e;
 }
+
 .pillAmber {
   background: rgba(245, 158, 11, 0.18);
   color: #f59e0b;
@@ -470,7 +491,7 @@ body {
 }
 
 /* =========================
-   Builds section (THIS was the problem)
+   Builds section
    ========================= */
 .velocitySection {
   margin-top: 12px;
@@ -527,41 +548,15 @@ html[data-theme="dark"] .buildBox {
   font-weight: 900;
 }
 
-/* Charts grid */
+/* =========================
+   Charts
+   ========================= */
 .chartsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
-/* =========================
-   Responsive
-   ========================= */
-@media (max-width: 980px) {
-  .content {
-    grid-template-columns: 1fr;
-  }
-  .searchBox {
-    width: 100%;
-    max-width: 100%;
-  }
-  .topbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .topbarRight {
-    justify-content: space-between;
-  }
-  .statsRow {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .summaryBox {
-    grid-template-columns: 1fr 1fr;
-  }
-  .chartsGrid {
-    grid-template-columns: 1fr;
-  }
-}
 /* =========================
    Review Queue
    ========================= */
@@ -596,11 +591,46 @@ html[data-theme="dark"] .buildBox {
 }
 
 html[data-theme="dark"] .queueAge {
-  background: rgba(148, 163, 184, 0.10);
+  background: rgba(148, 163, 184, 0.1);
 }
 
 .queueSubject {
   font-size: 13px;
   font-weight: 800;
   margin-bottom: 6px;
+}
+
+/* =========================
+   Responsive
+   ========================= */
+@media (max-width: 980px) {
+  .content {
+    grid-template-columns: 1fr;
+  }
+
+  .searchBox {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbarRight {
+    justify-content: space-between;
+  }
+
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .buildGrid {
+    grid-template-columns: 1fr;
+  }
 }
