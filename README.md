@@ -41,3 +41,7 @@ This project follows a full-stack architecture:
 - CI build metrics (extendable)
 - Scrollable activity panel
 - Clean UI layout
+
+### Dashboard Overview
+![Dashboard Overview](screenshots/dashboard1.png)
+
