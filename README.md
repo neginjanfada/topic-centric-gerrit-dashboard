@@ -68,9 +68,9 @@ cd backend
 npm install
 
 #### Create a .env file inside the backend folder with:
-GERRIT_BASE_URL=https://your-gerrit-instance
-GERRIT_USER=your-username
-GERRIT_TOKEN=your-token
+GERRIT_BASE_URL=https://your-gerrit-instance <br />
+GERRIT_USER=your-username <br />
+GERRIT_TOKEN=your-token <br />
 OLLAMA_MODEL=qwen:0.5b
 
 ## Start the backend:
