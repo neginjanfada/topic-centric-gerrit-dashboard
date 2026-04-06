@@ -77,13 +77,13 @@ OLLAMA_MODEL=qwen:0.5b
 npm run dev
 
 ### 3. Set up the frontend
-## Open a new terminal:
+#### Open a new terminal:
 cd frontend
 npm install
 npm run dev
 
 ### 4. Run Ollama
-## Make sure Ollama is running with your chosen model:
+#### Make sure Ollama is running with your chosen model:
 ollama run qwen:0.5b
 
 ### How It Works
