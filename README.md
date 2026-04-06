@@ -63,3 +63,48 @@ Make sure you have Node.js and Ollama installed.
 git clone https://github.com/neginjanfada/topic-centric-gerrit-dashboard.git
 cd topic-centric-gerrit-dashboard
 ```
+### 2. Set up the backend
+cd backend
+npm install
+
+## Create a .env file inside the backend folder with:
+GERRIT_BASE_URL=https://your-gerrit-instance
+GERRIT_USER=your-username
+GERRIT_TOKEN=your-token
+OLLAMA_MODEL=qwen:0.5b
+
+## Start the backend:
+npm run dev
+
+### 3. Set up the frontend
+## Open a new terminal:
+cd frontend
+npm install
+npm run dev
+
+### 4. Run Ollama
+## Make sure Ollama is running with your chosen model:
+ollama run qwen:0.5b
+
+### How It Works
+	1.	The user enters a Gerrit topic.
+	2.	The backend fetches related changes from Gerrit.
+	3.	The data is processed into metrics, contributors, bottlenecks, and build insights.
+	4.	The AI model generates a short summary of the topic.
+	5.	The frontend displays the results in a structured dashboard.
+
+### Example Use Cases
+	•	Quickly understand a feature or topic branch
+	•	Identify review bottlenecks
+	•	Track contributor activity
+	•	Summarize large sets of Gerrit changes
+
+### Author
+Negin Janfada
+
+### Future Improvements
+	•	Smarter AI summaries
+	•	Advanced filtering by repository or contributor
+	•	Live Gerrit updates
+	•	Cloud deployment
+
