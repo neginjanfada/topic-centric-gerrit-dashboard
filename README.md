@@ -27,7 +27,7 @@ A full-stack dashboard for analyzing Gerrit topics, visualizing development acti
 
 ## Demo
 
-[Watch the demo video](demo/Demo.mp4)
+[Watch the demo video](demo/demo.mp4)
 
 ---
 
