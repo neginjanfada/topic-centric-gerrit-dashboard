@@ -67,7 +67,7 @@ cd topic-centric-gerrit-dashboard
 cd backend
 npm install
 
-## Create a .env file inside the backend folder with:
+#### Create a .env file inside the backend folder with:
 GERRIT_BASE_URL=https://your-gerrit-instance
 GERRIT_USER=your-username
 GERRIT_TOKEN=your-token
