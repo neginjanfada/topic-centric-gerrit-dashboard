@@ -21,9 +21,7 @@ A full-stack dashboard for analyzing Gerrit topics, visualizing development acti
 
 ![Dashboard Overview](screenshots/dashboard1.png)
 
-### AI Topic Summary
-
-![AI Topic Summary](screenshots/dashboard2.png)
+![Dashboard Overview](screenshots/dashboard2.png)
 
 ---
 
